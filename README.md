@@ -486,3 +486,7 @@ except:
 ### License
 
 MIT [©chenjiandongx](https://github.com/chenjiandongx)
+
+######做一些更新
+1.将原先的存储改为sqlite3;
+2.添加了https 的支持,增加了 国家和速度 字段;

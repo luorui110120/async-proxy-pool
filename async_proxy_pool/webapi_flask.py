@@ -2,20 +2,22 @@
 # coding=utf-8
 
 from flask import Flask, jsonify
-from async_proxy_pool.database import RedisClient
+#from async_proxy_pool.database import RedisClient
+from async_proxy_pool.data_sqlite3 import SQLite3Client
 
 app = Flask(__name__)
-redis_conn = RedisClient()
+sqlite3_conn = SQLite3Client()
 
 
 @app.route("/")
 def index():
-    return jsonify({"Welcome": "This is a proxy pool system."})
+    return jsonify({"Welcome": "This is a proxy pool system."},
+                   {"api": "pop , get"})
 
 
 @app.route("/pop")
 def pop_proxy():
-    proxy = redis_conn.pop_proxy().decode("utf8")
+    proxy = sqlite3_conn.pop_proxy()
     if proxy[:5] == "https":
         return jsonify({"https": proxy})
     else:
@@ -25,7 +27,7 @@ def pop_proxy():
 @app.route("/get/<int:count>")
 def get_proxy(count):
     res = []
-    for proxy in redis_conn.get_proxies(count):
+    for proxy in sqlite3_conn.get_proxies(count):
         if proxy[:5] == "https":
             res.append({"https": proxy})
         else:
@@ -35,18 +37,18 @@ def get_proxy(count):
 
 @app.route("/count")
 def count_all_proxies():
-    count = redis_conn.count_all_proxies()
+    count = sqlite3_conn.count_all_proxies()
     return jsonify({"count": str(count)})
 
 
 @app.route("/count/<int:score>")
 def count_score_proxies(score):
-    count = redis_conn.count_score_proxies(score)
+    count = sqlite3_conn.count_score_proxies(score)
     return jsonify({"count": str(count)})
 
 
 @app.route("/clear/<int:score>")
 def clear_proxies(score):
-    if redis_conn.clear_proxies(score):
+    if sqlite3_conn.clear_proxies(score):
         return jsonify({"Clear": "Successful"})
     return jsonify({"Clear": "Score should >= 0 and <= 10"})

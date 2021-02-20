@@ -34,7 +34,7 @@ SERVER_ACCESS_LOG = True
 # 批量测试数量
 VALIDATOR_BATCH_COUNT = 256
 # 校验器测试网站，可以定向改为自己想爬取的网站，如新浪，知乎等
-VALIDATOR_BASE_URL = "http://baidu.com"
+VALIDATOR_BASE_URL = "www.icanhazip.com"
 # 校验器循环周期（分钟）
 VALIDATOR_RUN_CYCLE = 15
 
@@ -47,3 +47,10 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36",
 }
+
+# sqlite3 数据的文件路径
+SQLITE3_FILENAME = 'proxy.db'
+###ip 数据库 文件路径
+QQWRY_FILENAME = 'qqwry.dat'
+### 测试ip速度的次数
+TEST_SPEED_COUNT = 10

@@ -5,3 +5,4 @@ pyquery
 requests
 flask
 sanic;sys_platform!='win32'
+qqwry-py3

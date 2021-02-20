@@ -16,11 +16,11 @@ HEADERS = {
 
 SUCCESS = 0
 FAIL = 0
-TIMEOUT = 15
+TIMEOUT = 3
 
-TEST_COUNT = os.environ.get("TEST_COUNT") or 1000
-TEST_WEBSITE = os.environ.get("TEST_WEBSITE") or "https://zhihu.com"
-TEST_PROXIES = os.environ.get("TEST_PROXIES") or "http://localhost:3289/get/20"
+TEST_COUNT = os.environ.get("TEST_COUNT") or 5000
+TEST_WEBSITE = os.environ.get("TEST_WEBSITE") or "https://icanhazip.com"
+TEST_PROXIES = os.environ.get("TEST_PROXIES") or "http://localhost:3289/get/500"
 
 
 def get_proxies():
@@ -38,6 +38,7 @@ def test_one_proxy(proxy):
             TEST_WEBSITE, proxies=proxy, timeout=TIMEOUT, headers=HEADERS
         )
         if req.status_code == 200:
+            print(req.text)
             SUCCESS += 1
         else:
             FAIL += 1
@@ -47,6 +48,7 @@ def test_one_proxy(proxy):
 
 if __name__ == "__main__":
     proxies = get_proxies()
+    print(proxies)
     tasks = [random.choice(proxies) for _ in range(int(TEST_COUNT))]
     with ThreadPoolExecutor(max_workers=64) as executor:
         executor.map(test_one_proxy, tasks)

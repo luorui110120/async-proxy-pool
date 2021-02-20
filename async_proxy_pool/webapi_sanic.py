@@ -4,10 +4,11 @@
 from sanic import Sanic
 from sanic.response import json
 
-from async_proxy_pool.database import RedisClient
+#from async_proxy_pool.database import RedisClient
+from async_proxy_pool.data_sqlite3 import SQLite3Client
 
 app = Sanic()
-redis_conn = RedisClient()
+sqlite3_conn = SQLite3Client()
 
 
 @app.route("/")
@@ -17,7 +18,7 @@ async def index(request):
 
 @app.route("/pop")
 async def pop_proxy(request):
-    proxy = redis_conn.pop_proxy().decode("utf8")
+    proxy = sqlite3_conn.pop_proxy()
     if proxy[:5] == "https":
         return json({"https": proxy})
     else:
@@ -27,7 +28,7 @@ async def pop_proxy(request):
 @app.route("/get/<count:int>")
 async def get_proxy(request, count):
     res = []
-    for proxy in redis_conn.get_proxies(count):
+    for proxy in sqlite3_conn.get_proxies(count):
         if proxy[:5] == "https":
             res.append({"https": proxy})
         else:
@@ -37,18 +38,18 @@ async def get_proxy(request, count):
 
 @app.route("/count")
 async def count_all_proxies(request):
-    count = redis_conn.count_all_proxies()
+    count = sqlite3_conn.count_all_proxies()
     return json({"count": str(count)})
 
 
 @app.route("/count/<score:int>")
 async def count_score_proxies(request, score):
-    count = redis_conn.count_score_proxies(score)
+    count = sqlite3_conn.count_score_proxies(score)
     return json({"count": str(count)})
 
 
 @app.route("/clear/<score:int>")
 async def clear_proxies(request, score):
-    if redis_conn.clear_proxies(score):
+    if sqlite3_conn.clear_proxies(score):
         return json({"Clear": "Successful"})
     return json({"Clear": "Score should >= 0 and <= 10"})

@@ -1,18 +1,22 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-import re
+import re,time
 
 import pyquery
+from urllib.request import urlopen
+import urllib
+from lxml.html import parse
+
 
 from .utils import requests
-from .database import RedisClient
+#from .database import RedisClient
+from .data_sqlite3 import SQLite3Client
 from .logger import logger
 
 
-redis_conn = RedisClient()
+sqlite3_conn = SQLite3Client()
 all_funcs = []
-
 
 def collect_funcs(func):
     """
@@ -31,75 +35,90 @@ class Crawler:
         logger.info("Crawler working...")
         for func in all_funcs:
             for proxy in func():
-                redis_conn.add_proxy(proxy)
+                sqlite3_conn.add_proxy(proxy)
                 logger.info("Crawler √ {}".format(proxy))
         logger.info("Crawler resting...")
 
-    @staticmethod
-    @collect_funcs
-    def crawl_66ip():
-        """
-        66ip 代理：http://www.66ip.cn
-        """
-        url = (
-            "http://www.66ip.cn/nmtq.php?getnum=100&isp=0"
-            "&anonymoustype=0&area=0&proxytype={}&api=66ip"
-        )
-        pattern = "\d+\.\d+.\d+\.\d+:\d+"
-
-        items = [(0, "http://{}"), (1, "https://{}")]
-        for item in items:
-            proxy_type, host = item
-            html = requests(url.format(proxy_type))
-            if html:
-                for proxy in re.findall(pattern, html):
-                    yield host.format(proxy)
 
     @staticmethod
-    @collect_funcs
-    def crawl_xici():
-        """
-        西刺代理：http://www.xicidaili.com
-        """
-        url = "http://www.xicidaili.com/{}"
-
-        items = []
-        for page in range(1, 21):
-            items.append(("wt/{}".format(page), "http://{}:{}"))
-            items.append(("wn/{}".format(page), "https://{}:{}"))
-
-        for item in items:
-            proxy_type, host = item
-            html = requests(url.format(proxy_type))
-            if html:
-                doc = pyquery.PyQuery(html)
-                for proxy in doc("table tr").items():
-                    ip = proxy("td:nth-child(2)").text()
-                    port = proxy("td:nth-child(3)").text()
-                    if ip and port:
-                        yield host.format(ip, port)
-
-    @staticmethod
-    @collect_funcs
+    #@collect_funcs
     def crawl_kuaidaili():
         """
         快代理：https://www.kuaidaili.com
         """
-        url = "https://www.kuaidaili.com/free/{}"
-
-        items = ["inha/1/"]
-        for proxy_type in items:
-            html = requests(url.format(proxy_type))
-            if html:
-                doc = pyquery.PyQuery(html)
-                for proxy in doc(".table-bordered tr").items():
-                    ip = proxy("[data-title=IP]").text()
-                    port = proxy("[data-title=PORT]").text()
-                    if ip and port:
-                        yield "http://{}:{}".format(ip, port)
+        typelist = ['inha', 'intr']
+        for proxy_type in typelist:
+            ###//获取5页的代理ip
+            for page_index in range(1, 5):
+                #### //国内代理
+                url = "https://www.kuaidaili.com/free/%s/%d/" % (proxy_type, page_index)
+                html = urlopen(url)
+                if html:
+                    doc = parse(html)
+                    time.sleep(1)
+                    for trval in doc.xpath('//*[@id="list"]/table/tbody/tr'):
+                        ip = trval.xpath('./td[@data-title="IP"]/text()')[0]
+                        port = trval.xpath('./td[@data-title="PORT"]/text()')[0]
+                        schema = trval.xpath('./td[4]/text()')[0]
+                        if ip and port:
+                            yield "{}://{}:{}".format(schema.lower(), ip, port)
 
     @staticmethod
     @collect_funcs
+    def crawl_proxy_list():
+        """
+        快代理：www.proxy-list.download
+        """
+        typestrs = ['HTTPS', 'HTTP']
+
+
+        # for proxy_type in items:
+        for typestr in typestrs:
+            url = "https://www.proxy-list.download/%s" % (typestr.upper())
+            headers = {'user-agent': 'mozilla/5.0'}
+            url_data = urllib.request.Request(url=url, headers=headers)
+
+            # print(r.code)
+
+            html = urlopen(url_data)
+            if html:
+                # doc = pyquery.PyQuery(url=url)
+                doc = parse(html)
+                time.sleep(1)
+                ## for tdval in doc("tbody tr").items()
+                for trval in doc.xpath('//*[@id="tabli"]/tr'):
+                    ip = trval.xpath('./td[1]/text()')[0]
+                    port = trval.xpath('./td[2]/text()')[0]
+                    if ip and port:
+                        yield "{}://{}:{}".format(typestr.lower(), ip, port)
+    @staticmethod
+    #@collect_funcs
+    def crawl_hidemy():
+        """
+        hidemy代理：https://hidemy.name/cn
+        """
+        typestrs=['http', 'https']
+        for typestr in typestrs:
+            url = "https://hidemy.name/cn/proxy-list/?type=%s#list" % ('s' if typestr.find('https') >= 0 else 'h')
+            headers = {'user-agent': 'mozilla/5.0'}
+            '''
+            使用Request类添加请求头可以不使用headers这个参数。而使用这个类的实例化对象的方法
+            add_header(key='user-agent',val='mozilla/5.0')
+            '''
+            url_data = urllib.request.Request(url=url, headers=headers)
+            html = urlopen(url_data)
+            if html:
+                doc = parse(html)
+                ### 延迟1秒,请求太快会导致返回失败
+                time.sleep(1)
+                for trval in doc.xpath('/html/body/div[1]/div[4]/div/div[4]/table/tbody/tr'):
+                    ip = trval.xpath('./td[1]/text()')[0]
+                    port = trval.xpath('./td[2]/text()')[0]
+                    proxy_type = trval.xpath('./td[5]/text()')[0]
+                    if ip and port:
+                        yield "{}://{}:{}".format(typestr, ip, port)
+    @staticmethod
+    #@collect_funcs
     def crawl_ip3366():
         """
         云代理：http://www.ip3366.net
@@ -118,64 +137,6 @@ class Crawler:
                     if ip and port and schema:
                         yield "{}://{}:{}".format(schema.lower(), ip, port)
 
-    @staticmethod
-    @collect_funcs
-    def crawl_data5u():
-        """
-        无忧代理：http://www.data5u.com/
-        """
-        url = "http://www.data5u.com/"
-
-        html = requests(url)
-        if html:
-            doc = pyquery.PyQuery(html)
-            for index, item in enumerate(doc("li ul").items()):
-                if index > 0:
-                    ip = item("span:nth-child(1)").text()
-                    port = item("span:nth-child(2)").text()
-                    schema = item("span:nth-child(4)").text()
-                    if ip and port and schema:
-                        yield "{}://{}:{}".format(schema, ip, port)
-
-    @staticmethod
-    @collect_funcs
-    def crawl_iphai():
-        """
-        ip 海代理：http://www.iphai.com
-        """
-        url = "http://www.iphai.com/free/{}"
-
-        items = ["ng", "np", "wg", "wp"]
-        for proxy_type in items:
-            html = requests(url.format(proxy_type))
-            if html:
-                doc = pyquery.PyQuery(html)
-                for item in doc(".table-bordered tr").items():
-                    ip = item("td:nth-child(1)").text()
-                    port = item("td:nth-child(2)").text()
-                    schema = item("td:nth-child(4)").text().split(",")[0]
-                    if ip and port and schema:
-                        yield "{}://{}:{}".format(schema.lower(), ip, port)
-
-    @staticmethod
-    @collect_funcs
-    def crawl_swei360():
-        """
-        360 代理：http://www.swei360.com
-        """
-        url = "http://www.swei360.com/free/?stype={}"
-
-        items = [p for p in range(1, 5)]
-        for proxy_type in items:
-            html = requests(url.format(proxy_type))
-            if html:
-                doc = pyquery.PyQuery(html)
-                for item in doc(".table-bordered tr").items():
-                    ip = item("td:nth-child(1)").text()
-                    port = item("td:nth-child(2)").text()
-                    schema = item("td:nth-child(4)").text()
-                    if ip and port and schema:
-                        yield "{}://{}:{}".format(schema.lower(), ip, port)
 
 
 crawler = Crawler()
